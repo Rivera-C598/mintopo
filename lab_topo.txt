@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+
+# lab_topo.py
+
+from mininet.net import Mininet
+from mininet.node import Node
+from mininet.topo import Topo
+from mininet.cli import CLI
+from mininet.log import setLogLevel
+import os, time
+
+class Router(Node):
+    def config(self, **params):
+        super(Router, self).config(**params)
+        # enable IP forwarding inside node namespace
+        self.cmd('sysctl -w net.ipv4.ip_forward=1')
+
+    def terminate(self):
+        self.cmd('sysctl -w net.ipv4.ip_forward=0')
+        super(Router, self).terminate()
+
+class LabTopo(Topo):
+    def build(self):
+        # Routers
+        r = {}
+        for i in range(1,7):
+            name = 'r%d' % i
+            r[i] = self.addHost(name, cls=Router, privateDirs=[('/etc/frr','/tmp/%(name)s/etc/frr')])
+
+        # Hosts
+        h1 = self.addHost('h1')
+        h2 = self.addHost('h2')
+
+        # Add links (customize IPs in instructions below)
+        # r1 - r2
+        self.addLink(r[1], r[2])
+        # r1 - r3
+        self.addLink(r[1], r[3])
+        # r3 - r4
+        self.addLink(r[3], r[4])
+        # r4 - r5
+        self.addLink(r[4], r[5])
+        # r5 - r6
+        self.addLink(r[5], r[6])
+        # r6 - r1
+        self.addLink(r[6], r[1])
+
+        # Connect hosts to routers
+        self.addLink(h1, r[1])
+        self.addLink(h2, r[4])
+
+def main():
+    setLogLevel('info')
+    topo = LabTopo()
+    net = Mininet(topo=topo, build=False, autoSetMacs=True)
+    net.build()
+    net.start()
+    print("\n--- Topology started. Now assign IPs and prepare FRR configs as explained in the lab instructions ---\n")
+    CLI(net)
+    net.stop()
+
+if __name__ == '__main__':
+    main()
